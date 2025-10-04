@@ -127,9 +127,7 @@ def mask_inputs(
     mask_all_but_last=False,
     modify_chat_template=False,
 ):
-    bos_token,start_tokens, end_tokens_default, end_tokens_modify = CHAT_FORMAT_TOKENS[
-        tokenizer_name
-    ]
+    bos_token, start_tokens, end_tokens_default, end_tokens_modify = CHAT_FORMAT_TOKENS[tokenizer_name]
     end_tokens = end_tokens_modify if modify_chat_template else end_tokens_default
     batch_size, seq_len = input_ids.shape
     mask = torch.zeros_like(input_ids, dtype=torch.bool)
@@ -215,9 +213,7 @@ def tokenize(
                 query,
                 tokenize=False,
                 add_generation_prompt=generate,
-                chat_template=(
-                    DECODER_CHAT_TEMPLATES[name] if modify_chat_template else None
-                ),
+                chat_template=(DECODER_CHAT_TEMPLATES[name] if modify_chat_template else None),
             )
         )
     tokenized_write = tokenizer(
@@ -238,12 +234,7 @@ def tokenize(
             tokenized_write.input_ids,
             name,
             mask_type=None,
-            shift_start=any(
-                [
-                    m in name.lower()
-                    for m in ["mistral", "llama-3", "deepseek-r1-distill"]
-                ]
-            ),
+            shift_start=any([m in name.lower() for m in ["mistral", "llama-3", "deepseek-r1-distill"]]),
             mask_all_but_last=mask_all_but_last,
             modify_chat_template=modify_chat_template,
         )
@@ -295,9 +286,7 @@ class LatentQADataset(Dataset):
         self.lengths = []
         for idx in range(self.__len__()):
             behavior, qa = self.get_behavior_qa(idx)
-            self.lengths.append(
-                sum([len(s) for s in behavior]) + len(qa[0]) + len(qa[1])
-            )
+            self.lengths.append(sum([len(s) for s in behavior]) + len(qa[0]) + len(qa[1]))
 
     def get_behavior_qa(self, idx):
         if idx < len(self.id_tuples[0]):
@@ -305,16 +294,12 @@ class LatentQADataset(Dataset):
         elif idx < len(self.id_tuples[0]) + len(self.id_tuples[1]):
             j = 1
             idx -= len(self.id_tuples[0])
-        elif idx < len(self.id_tuples[0]) + len(self.id_tuples[1]) + len(
-            self.id_tuples[2]
-        ):
+        elif idx < len(self.id_tuples[0]) + len(self.id_tuples[1]) + len(self.id_tuples[2]):
             j = 2
             idx -= len(self.id_tuples[0]) + len(self.id_tuples[1])
         else:
             j = 3
-            idx -= (
-                len(self.id_tuples[0]) + len(self.id_tuples[1]) + len(self.id_tuples[2])
-            )
+            idx -= len(self.id_tuples[0]) + len(self.id_tuples[1]) + len(self.id_tuples[2])
         label_idx, data_idx, qa_idx = self.id_tuples[j][idx]
         label = self.labels[j][label_idx]
         return self.data[j][label][data_idx], self.qa_data[label][qa_idx]
@@ -376,19 +361,19 @@ class LatentQADataset(Dataset):
                 ]
                 add_generation_prompt = False
                 mask_type = "user"
-        read_prompt = self.tokenizer.apply_chat_template(
-            read_prompt,
-            tokenize=False,
-            add_generation_prompt=add_generation_prompt,
-            chat_template=self.chat_template,
-        )
+        # read_prompt = self.tokenizer.apply_chat_template(
+        #     read_prompt,
+        #     tokenize=False,
+        #     add_generation_prompt=add_generation_prompt,
+        #     chat_template=self.chat_template,
+        # )
         qa_dialog = [
             {"role": "user", "content": qa[0]},
             {"role": "assistant", "content": qa[1]},
         ]
         return {
             "read_prompt": read_prompt,
-            "dialog": BASE_DIALOG + qa_dialog,
+            "dialog": qa_dialog,
             "mask_type": mask_type,
         }
 
@@ -431,9 +416,7 @@ class DataCollatorForLatentQA:
 
 
 class LengthBasedBatchSampler(torch.utils.data.BatchSampler):
-    def __init__(
-        self, data_source, batch_size: int, drop_last: bool, shuffle: bool = True
-    ) -> None:
+    def __init__(self, data_source, batch_size: int, drop_last: bool, shuffle: bool = True) -> None:
         self.lengths = data_source.lengths
         self.batch_size = batch_size
         self.drop_last = drop_last
@@ -444,9 +427,7 @@ class LengthBasedBatchSampler(torch.utils.data.BatchSampler):
         if self.drop_last:
             ids = ids[: len(ids) // self.batch_size * self.batch_size]
 
-        batches = [
-            ids[i : i + self.batch_size] for i in range(0, len(ids), self.batch_size)
-        ]
+        batches = [ids[i : i + self.batch_size] for i in range(0, len(ids), self.batch_size)]
 
         if self.shuffle:
             random.shuffle(batches)
@@ -458,9 +439,7 @@ class LengthBasedBatchSampler(torch.utils.data.BatchSampler):
         if self.drop_last:
             return len(self.lengths) // self.batch_size
         else:
-            return len(self.lengths) // self.batch_size + (
-                len(self.lengths) % self.batch_size > 0
-            )
+            return len(self.lengths) // self.batch_size + (len(self.lengths) % self.batch_size > 0)
 
 
 class DistributedLengthBasedBatchSampler(torch.utils.data.BatchSampler):
@@ -544,9 +523,7 @@ def get_dataset(train_config, tokenizer, train=True):
         if train_config.train_percent == 1 or not train:
             id_tuples = list(id_tuples)
         else:
-            id_tuples = random.sample(
-                id_tuples, int(len(id_tuples) * train_config.train_percent)
-            )
+            id_tuples = random.sample(id_tuples, int(len(id_tuples) * train_config.train_percent))
         for i in range(len(id_tuples)):
             label_idx = id_tuples[i] // (NUM_BEHAVIORS * NUM_QA)
             data_idx = (id_tuples[i] // NUM_QA) % NUM_BEHAVIORS
@@ -555,11 +532,7 @@ def get_dataset(train_config, tokenizer, train=True):
         return data, id_tuples
 
     p0 = train_config.train_system if train else train_config.eval_system
-    p1 = (
-        train_config.train_stimulus_completion
-        if train
-        else train_config.eval_stimulus_completion
-    )
+    p1 = train_config.train_stimulus_completion if train else train_config.eval_stimulus_completion
     p2 = train_config.train_stimulus if train else train_config.eval_stimulus
     p3 = train_config.train_control if train else train_config.eval_control
     data_system = build_data_and_idx(p0)
